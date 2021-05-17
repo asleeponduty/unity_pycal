@@ -1,0 +1,63 @@
+@font-face {
+  font-family: 'Noto Sans JP';
+  src: url(fonts/Noto_Sans_JP/NotoSansJP-Regular.otf);
+  font-weight: normal;
+}
+@font-face {
+  font-family: 'Noto Sans JP';
+  src: url(fonts/Noto_Sans_JP/NotoSansJP-Bold.otf);
+  font-weight: bold;
+}
+body {
+  background-color: #CAEAE9;
+  font-family: 'Noto Sans JP', serif, sans-serif;
+}
+table {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-collapse: collapse;
+
+}
+tr td {
+  background-color: #FFF2DB;
+  font-size: 80%;
+}
+.date {
+  background-color: #196867;
+  font-weight: normal;
+  text-align: center;
+  color: #FBFBF4;  
+  font-size: 110%;
+  padding: 0.2em 0 0.2em 0;
+}
+.starttime{
+  background: #3B888A;
+  color: #FBFBF4;
+  display: block;
+  text-align: center;
+  width: 6.5em;
+  /*margin-top: 3px;
+  margin-bottom: 3px;*/
+}
+.endtime {
+  font-size: 80%
+}
+.summary{
+  padding-left: .5em;
+  width: 100%;
+}
+.allday {
+  /*
+  background-color: #879D9C;
+  padding: 2px 0 2px 0;
+  border: 1px solid #879D9C;
+  border-radius: 2px;
+  color: #FBFBF4;
+  display: inline-block;
+  width: calc(100% - 2px);
+  text-align: center;
+  */
+  /* width: calc(100% - 6em - 2px); */
+  font-weight: bold;
+}

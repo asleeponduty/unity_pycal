@@ -1,0 +1,1 @@
+Forgive me for what I have written (and stolen)

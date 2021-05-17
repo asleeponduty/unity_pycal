@@ -1,0 +1,6 @@
+fonts/Noto_Sans_JP/**.otf
+calendar.ical
+*.html
+# Pycharm 
+# User-specific stuff
+.idea/**
