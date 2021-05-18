@@ -4,6 +4,7 @@ The rrule module offers a small, complete, and very fast, implementation of
 the recurrence rules documented in the
 `iCalendar RFC <http://www.ietf.org/rfc/rfc2445.txt>`_,
 including support for caching of results.
+This is the patched version from https://gist.github.com/jeinarsson/989329deb6906cae49f6e9f979c46ae7/
 """
 import itertools
 import datetime

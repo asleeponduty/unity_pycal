@@ -1,10 +1,16 @@
-from datetime import date, datetime, timedelta, timezone
+"""
+ical sorting and demangling
+lightly adapted from jeinarsson at:
+https://gist.github.com/jeinarsson/989329deb6906cae49f6e9f979c46ae7/
+"""
+from datetime import datetime, timezone
 import icalendar
 from rrule_patched import *
 
+
 # local tz needs to be passed in for all-day events to show up correctly
+# there's probably a more efficient way of doing this.
 def get_events_from_ics(ics_string, window_start, window_end, local_tz=timezone.utc):
-    
     events = []
 
     def append_event(e):
@@ -32,20 +38,16 @@ def get_events_from_ics(ics_string, window_start, window_end, local_tz=timezone.
 
         dates = []
 
-       
         for d in rules.between(window_start, window_end):
             dates.append(d)
         return dates
 
-
-
     cal = filter(lambda c: c.name == 'VEVENT',
-        icalendar.Calendar.from_ical(ics_string).walk()
-        )
+                 icalendar.Calendar.from_ical(ics_string).walk()
+                 )
 
     def date_to_datetime(d):
         return datetime(d.year, d.month, d.day, tzinfo=local_tz)
-
 
     for vevent in cal:
         summary = str(vevent.get('summary'))
@@ -53,6 +55,8 @@ def get_events_from_ics(ics_string, window_start, window_end, local_tz=timezone.
         location = str(vevent.get('location'))
         rawstartdt = vevent.get('dtstart').dt
         rawenddt = vevent.get('dtend').dt
+        startdt = None
+        enddt = None
         allday = False
         if not isinstance(rawstartdt, datetime):
             allday = True
@@ -73,14 +77,14 @@ def get_events_from_ics(ics_string, window_start, window_end, local_tz=timezone.
                     d = datetime(d.year, d.month, d.day, tzinfo=local_tz)
 
                 new_e = {
-                    'startdt': d,      
-                    'allday': allday,                  
+                    'startdt': d,
+                    'allday': allday,
                     'summary': summary,
                     'desc': description,
                     'loc': location
-                    }
+                }
                 if enddt:
-                    new_e['enddt'] = d + (enddt-startdt)                        
+                    new_e['enddt'] = d + (enddt - startdt)
                 append_event(new_e)
         else:
             if allday:
@@ -92,6 +96,6 @@ def get_events_from_ics(ics_string, window_start, window_end, local_tz=timezone.
                 'summary': summary,
                 'desc': description,
                 'loc': location
-                })
+            })
     events.sort(key=lambda e: (e['startdt'], 0 if e['allday'] else 1))
     return events
