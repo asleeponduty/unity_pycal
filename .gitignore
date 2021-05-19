@@ -1,6 +1,13 @@
 fonts/Noto_Sans_JP/**.otf
 calendar.ical
+
+# Temporary files (system)
+TEMP_FIREFOX/**
+__pycache__/**
+
+# Temporary files (processing)
 *.html
+output/**.png
 # Pycharm 
 # User-specific stuff
 .idea/**
