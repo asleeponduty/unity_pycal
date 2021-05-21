@@ -6,8 +6,7 @@ TEMP_FIREFOX/**
 __pycache__/**
 
 # Temporary files (processing)
-*.html
-output/**.png
+output/**
 # Pycharm 
 # User-specific stuff
 .idea/**

@@ -5,122 +5,179 @@ This generates three html documents, in the timezones declared in "tzs"
 from the ical accessible at "url"
 """
 import argparse
-from datetime import timedelta
-from dateutil import tz
 import html
-from ics import *
 import os
-from string import Template
-import urllib.request
 import subprocess
+import time
+import urllib.error
+import urllib.request
+from datetime import timedelta
+from string import Template
 
 import cv2
+from dateutil import tz
+
+from ics import *
 
 LOOKAHEAD = 14  # Days
+FIREFOX_PATH = 'c:\\Program Files\\Mozilla Firefox\\firefox.exe'
+FFMPEG_PATH = 'ffmpeg'  # if it's already on your path, you don't need to use the absolute path
 
+ENABLE_DESCRIPTIONS = False
+MAX_DETAIL_LINES = 4
+CHARS_PER_DETAIL_LINE = 80
 
 def filesafe_str(in_str):
-    return "".join([c for c in in_str if c.isalpha() or c.isdigit() or c == ' ']).rstrip()
+    return "".join([c for c in in_str if c.isalpha() or c.isdigit() or c == ' ' or c == '-' or c == '+']).rstrip()
 
 
 def generate_calendars(ical_url, canonical_tzs, use_cache=False):
-    head = "<!DOCTYPE html>\n<html>\n<head>" + \
-           '<meta charset="UTF-8">' + \
-           '<link rel=\"stylesheet\" href=\"style.css\"/>' + "</head><body>\n"
-    tail = "</div>\n</body></html>"
-
-    body_pre = Template(
-        '<div class="top">\n'
-        '\t<div class="scrollbar"></div>\n' +
-        '\t<div class="header"><img src="banner/current.png"></div>\n' +
-        '\t<div class="spacer"></div>\n' +
-        '\t<div class="footer">Poonis Technologies - $timezone</div>\n' +
-        '</div>\n'
-        '<div class="bottom">\n' +
-        '\t<div class="scrollbar"></div>\n')
-
     if use_cache and os.path.exists("calendar.ical"):
         # print("Using Cached")
-        with open("calendar.ical", "r") as f:
+        with open("calendar.ical", "r", encoding="utf-8") as f:
             ics_string = f.read()
     else:
         # print("Requesting Calendar")
         with urllib.request.urlopen(ical_url) as response:
-            ics_string = response.read()
+            try:
+                ics_string = response.read()
+            except urllib.error as e:
+                print(e)
+                raise
+
         if use_cache:
             with open('calendar.ical', "wb") as f:
                 f.write(ics_string)
 
-    files = []
+    with open("html-resources/template/head.html", "r", encoding="utf-8") as f:
+        head_html_template = Template(f.read())
+    with open("html-resources/template/tail.html", "r", encoding="utf-8") as f:
+        tail_html = f.read()
 
+    files = []
     for can_tz in canonical_tzs:
         loc_tz = tz.gettz(can_tz)
-        window_start = datetime.now(loc_tz)
+        today = datetime.now(loc_tz)
+        window_start = datetime(today.year, today.month, today.day, tzinfo=loc_tz)
         # For generating files with the UTC offset in the filename instead, use this:
-        # offset = loc_tz.utcoffset(window_start)
-        # offset_h = str(offset.seconds / 3600)
+        offset = today.utcoffset() - today.astimezone(timezone.utc).utcoffset()
+        offset_num = int(offset.total_seconds() / 3600)
+        offset_h = str(offset_num)
+        if offset_num >= 0:
+            offset_h = '+' + offset_h
+        # if you instead wish to use the canonical name, pass in "loc_tz" instead of "offset_h" here:
+        filename = f'cal_{filesafe_str(str(offset_h))}.html'
         window_end = window_start + timedelta(days=LOOKAHEAD)
         events = get_events_from_ics(ics_string, window_start, window_end, loc_tz)
-        fname = f"cal_{filesafe_str(str(loc_tz))}.html"
-        files.append((fname, can_tz))
+        fname = os.path.abspath("output/html") + os.sep + filename
+        files.append(fname)
         with open(fname, "w", encoding="utf-8") as out:
-            out.write(head)
-            out.write(body_pre.substitute(timezone=can_tz))
+            out.write(head_html_template.substitute(timezone=str(offset_h)))
             out.write(f"<div class=\"calendar\"><table>\n")
             day = None
             for e in events:
-                start = e['startdt'].astimezone(tz=loc_tz)
-                e_date = start.strftime('%b %d')
+                evt_start = e['startdt'].astimezone(tz=loc_tz)
+                e_date = evt_start.strftime('%b %d')
                 if e_date != day:
                     out.write(f"\t<tr><td colspan=\"2\" class=\"date\">{e_date}</td></tr>\n")
                 day = e_date
+                evt_end = e.get('enddt', None)
+
                 if e['allday']:
-                    out.write(f"\t<tr><td class=\"starttime\">&nbsp;</td>" +
-                              f"<td class=\"allday summary\">{html.escape(e['summary'])}</td></tr>\n")
+                    time_line = f"\t<tr><td class=\"starttime\">&nbsp;</td>"
+                elif evt_end:
+                    evt_end = evt_end.astimezone(tz=loc_tz)
+                    time_line = f"\t<tr><td class=\"starttime\">{evt_start.strftime('%H:%M')} ~ " + \
+                                  f"<span class=\"endtime\">{evt_end.strftime('%H:%M')}</span></td>"
                 else:
-                    end = e.get('enddt', None)
-                    if end:
-                        end = end.astimezone(tz=loc_tz)
-                        out.write(f"\t<tr><td class=\"starttime\">{start.strftime('%H:%M')} ~ " +
-                                  f"<span class=\"endtime\">{end.strftime('%H:%M')}</span></td>" +
-                                  f"<td class=\"summary\">{html.escape(e['summary'])}</td></tr>\n")
-                    else:
-                        out.write(f"\t<tr><td class=\"starttime\">{start.strftime('%H:%M')}</td>" +
-                                  f"<td class=\"summary\">{html.escape(e['summary'])}</td></tr>\n")
+                    time_line = f"\t<tr><td class=\"starttime\">{evt_start.strftime('%H:%M')}</td>"
+
+                summary_line = f"<td class=\"summary{' allday' if e['allday'] else ''}\">{html.escape(e['summary'])}"
+
+                desc_line = ""
+                if ENABLE_DESCRIPTIONS and e['desc'] and len(e['desc']) > 4:
+                    desc_array = list(filter(None, e['desc'].split('\n')))
+                    trunc = False
+                    if len(desc_array) > MAX_DETAIL_LINES:
+                        desc_array = desc_array[:MAX_DETAIL_LINES]
+                        trunc = True
+                    desc_str = '\n'.join(desc_array)
+                    if len(desc_str) > (CHARS_PER_DETAIL_LINE*MAX_DETAIL_LINES):
+                        desc_str = desc_str[:CHARS_PER_DETAIL_LINE*MAX_DETAIL_LINES]
+                        desc_str = desc_str[:desc_str.rfind(" ")]
+                        trunc = True
+                    if trunc:
+                        desc_str = desc_str + "...\n[Description Truncated; More info on online calendar]"
+
+                    desc_line = f"<br /><span class=\"details\">{html.escape(desc_str)}</span>"
+
+                details_close = "</td></tr>\n"
+
+                out.write(time_line + summary_line + desc_line + details_close)
+
             out.write("</table>\n</div>\n")
-            out.write(tail)
-        print("*", end="")
+            out.write(tail_html)
+        print("*", end="", flush=True)
     return files
 
 
-def generate_with_firefox(result_tuples):
+def generate_with_firefox(html_paths):
     calendar_images_tmp = []
-    for filename, can_tz in result_tuples:
-        cal_fname = f'calendar_{filesafe_str(can_tz)}.png'
-        cal_path = os.path.abspath("output/tmp") + os.sep + cal_fname
-        calendar_images_tmp.append(cal_path)
+    for in_path in html_paths:
+        out_path = in_path.replace(".html", ".png").replace("html", "screenshot-in")
+        calendar_images_tmp.append(out_path)
         subprocess.run(
-            'c:\\Program Files\\Mozilla Firefox\\firefox.exe' +
+            FIREFOX_PATH +
             ' --headless --profile TEMP_FIREFOX --no-remote' +
-            f' --screenshot {cal_path}' +
-            f' file:///{os.path.abspath(filename)} ' +
-            ' --window-size=512,2048')
-        print("*", end="")
+            f' --screenshot {out_path}' +
+            f' file:///{in_path} ' +
+            ' --window-size=2048,8192')
+        os.remove(in_path)
+        print("*", end="", flush=True)
 
     return calendar_images_tmp
 
 
 def reshape_with_ocv(image_paths):
+    result_paths = []
     for full_path in image_paths:
         image = cv2.imread(full_path)
+        if image.size == 0:
+            print(f"Image did not exist at path {full_path}")
+            continue
         sz = image.shape  # y, x, z
         im_l = image[:sz[1]*2, :, :]
         im_r = image[sz[1]*2:, :, :]
         im_h = cv2.hconcat([im_l, im_r])
-        new_path = full_path.replace(os.sep + "tmp", "")
+        new_path = full_path.replace("screenshot-in", "screenshot-out")
+        result_paths.append(new_path)
         cv2.imwrite(new_path, im_h)
         os.remove(full_path)
-        print("*", end="")
+        print("*", end="", flush=True)
+    return result_paths
+
+
+def embed_into_mp4(image_paths):
+    result_paths = []
+    for full_path in image_paths:
+        new_path = full_path.replace(".png", ".mp4")
+        new_path = new_path.replace("screenshot-out", "mp4")
+        result_paths.append(new_path)
+        subprocess.run(
+            FFMPEG_PATH +
+            ' -y -hide_banner -loglevel error' +
+            f' -i {full_path}' +
+            ' -c:v libx264 -pix_fmt yuv420p' +
+            f' {new_path}')
+        os.remove(full_path)
+        print("*", end="", flush=True)
+    return result_paths
+
+
+def print_elapsed(last_t):
+    segment = time.time()
+    print(f'] {segment - last_t :.2f}s', flush=True)
+    return segment
 
 
 if __name__ == '__main__':
@@ -133,8 +190,13 @@ if __name__ == '__main__':
     url = 'https://calendar.google.com/calendar/ical/' + \
           'a62rkiqhau8bn341cepfbc4k0s%40group.calendar.google.com/public/basic.ics'
 
-    tzs = ['America/Los_Angeles', 'America/New_York', 'Etc/UTC', 'Europe/London',
-           'Europe/Berlin', 'Asia/Singapore', 'Pacific/Auckland']
+    tzs = []
+    for i in range(12 + 14 + 1):
+        tz_num_etc = i - 14
+        if tz_num_etc >= 0:
+            tz_num_etc = 'p' + str(tz_num_etc)
+        can_string = f"Etc/GMT{tz_num_etc}"
+        tzs.append(can_string)
 
     if args.url is not None:
         url = args.url
@@ -144,13 +206,24 @@ if __name__ == '__main__':
         else:
             tzs = [args.tzs]
 
+    start = time.time()
+    last = start
     total = len(tzs)
-    print(f"Generating Calendars for {total} timezones")
+    print(f"Generating Calendars for {total} timezones\n[", end="")
     cal_results = generate_calendars(url, tzs, args.cache)
-    print(']')
+    last = print_elapsed(last)
+
     print(f"Rendering images from html\n[", end="")
     pre_imgs = generate_with_firefox(cal_results)
-    print(']')
+    last = print_elapsed(last)
+
     print(f"Formatting to Square with OpenCV\n[", end="")
-    reshape_with_ocv(pre_imgs)
-    print(']')
+    post_imgs = reshape_with_ocv(pre_imgs)
+    last = print_elapsed(last)
+
+    print(f"Using FFMPEG to embed in an MP4\n[", end="")
+    post_mp4 = embed_into_mp4(post_imgs)
+    last = print_elapsed(last)
+
+    end = time.time()
+    print(f"Completed in {end-start :.2f}s")

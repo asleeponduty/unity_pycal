@@ -54,20 +54,20 @@ def get_events_from_ics(ics_string, window_start, window_end, local_tz=timezone.
         description = str(vevent.get('description'))
         location = str(vevent.get('location'))
         rawstartdt = vevent.get('dtstart').dt
-        rawenddt = vevent.get('dtend').dt
+        try:
+            rawenddt = vevent.get('dtend').dt
+        except AttributeError:
+            continue
         startdt = None
         enddt = None
         allday = False
         if not isinstance(rawstartdt, datetime):
             allday = True
             startdt = date_to_datetime(rawstartdt)
-            if rawenddt:
-                enddt = date_to_datetime(rawenddt)
+            enddt = date_to_datetime(rawenddt)
         else:
-            startdt = rawstartdt
-            startdt = startdt.astimezone(tz=local_tz)
-            enddt = rawenddt
-            enddt = enddt.astimezone(tz=local_tz)
+            startdt = rawstartdt.astimezone(tz=local_tz)
+            enddt = rawenddt.astimezone(tz=local_tz)
 
         exdate = vevent.get('exdate')
         if vevent.get('rrule'):
