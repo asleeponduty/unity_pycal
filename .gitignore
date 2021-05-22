@@ -1,9 +1,14 @@
-fonts/Noto_Sans_JP/**.otf
+# Large files/Transient files
+html-resources/fonts/Noto_Sans_JP/**.otf
 calendar.ical
+
+# Secrets
+gdrive/**.json
 
 # Temporary files (system)
 TEMP_FIREFOX/**
 __pycache__/**
+gdrive/__pycache__/**
 
 # Temporary files (processing)
 output/**

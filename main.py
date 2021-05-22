@@ -18,6 +18,7 @@ import cv2
 from dateutil import tz
 
 from ics import *
+from gdrive_upload import batch_upload, setup_service, download_banner
 
 LOOKAHEAD = 14  # Days
 FIREFOX_PATH = 'c:\\Program Files\\Mozilla Firefox\\firefox.exe'
@@ -26,6 +27,10 @@ FFMPEG_PATH = 'ffmpeg'  # if it's already on your path, you don't need to use th
 ENABLE_DESCRIPTIONS = False
 MAX_DETAIL_LINES = 4
 CHARS_PER_DETAIL_LINE = 80
+
+BANNER_ID = "19P7CCDuquFFzNnOz4-nu4ZtgkFAHUepj"
+BANNER_PATH = "html-resources/banner/current.png"
+
 
 def filesafe_str(in_str):
     return "".join([c for c in in_str if c.isalpha() or c.isdigit() or c == ' ' or c == '-' or c == '+']).rstrip()
@@ -88,7 +93,7 @@ def generate_calendars(ical_url, canonical_tzs, use_cache=False):
                 elif evt_end:
                     evt_end = evt_end.astimezone(tz=loc_tz)
                     time_line = f"\t<tr><td class=\"starttime\">{evt_start.strftime('%H:%M')} ~ " + \
-                                  f"<span class=\"endtime\">{evt_end.strftime('%H:%M')}</span></td>"
+                                f"<span class=\"endtime\">{evt_end.strftime('%H:%M')}</span></td>"
                 else:
                     time_line = f"\t<tr><td class=\"starttime\">{evt_start.strftime('%H:%M')}</td>"
 
@@ -102,8 +107,8 @@ def generate_calendars(ical_url, canonical_tzs, use_cache=False):
                         desc_array = desc_array[:MAX_DETAIL_LINES]
                         trunc = True
                     desc_str = '\n'.join(desc_array)
-                    if len(desc_str) > (CHARS_PER_DETAIL_LINE*MAX_DETAIL_LINES):
-                        desc_str = desc_str[:CHARS_PER_DETAIL_LINE*MAX_DETAIL_LINES]
+                    if len(desc_str) > (CHARS_PER_DETAIL_LINE * MAX_DETAIL_LINES):
+                        desc_str = desc_str[:CHARS_PER_DETAIL_LINE * MAX_DETAIL_LINES]
                         desc_str = desc_str[:desc_str.rfind(" ")]
                         trunc = True
                     if trunc:
@@ -142,12 +147,16 @@ def reshape_with_ocv(image_paths):
     result_paths = []
     for full_path in image_paths:
         image = cv2.imread(full_path)
-        if image.size == 0:
+        try:
+            if image.size == 0:
+                print(f"Image did not exist at path {full_path}")
+                continue
+        except AttributeError:
             print(f"Image did not exist at path {full_path}")
             continue
         sz = image.shape  # y, x, z
-        im_l = image[:sz[1]*2, :, :]
-        im_r = image[sz[1]*2:, :, :]
+        im_l = image[:sz[1] * 2, :, :]
+        im_r = image[sz[1] * 2:, :, :]
         im_h = cv2.hconcat([im_l, im_r])
         new_path = full_path.replace("screenshot-in", "screenshot-out")
         result_paths.append(new_path)
@@ -180,13 +189,7 @@ def print_elapsed(last_t):
     return segment
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Generate some calendars')
-    parser.add_argument("-url", default=None, help="url to the .ical")
-    parser.add_argument("-tzs", default=None, metavar='T', nargs='+', help="list of canonical timezones")
-    parser.add_argument("-cache", action='store_true', default=False, help="Enable locally caching ical")
-    args = parser.parse_args()
-
+def do_tasks(args, goog_service):
     url = 'https://calendar.google.com/calendar/ical/' + \
           'a62rkiqhau8bn341cepfbc4k0s%40group.calendar.google.com/public/basic.ics'
 
@@ -194,7 +197,7 @@ if __name__ == '__main__':
     for i in range(12 + 14 + 1):
         tz_num_etc = i - 14
         if tz_num_etc >= 0:
-            tz_num_etc = 'p' + str(tz_num_etc)
+            tz_num_etc = '+' + str(tz_num_etc)
         can_string = f"Etc/GMT{tz_num_etc}"
         tzs.append(can_string)
 
@@ -225,5 +228,23 @@ if __name__ == '__main__':
     post_mp4 = embed_into_mp4(post_imgs)
     last = print_elapsed(last)
 
+    print(f"Uploading files to Google Drive\n[", end="")
+    batch_upload(goog_service, post_mp4)
+    print_elapsed(last)
+
     end = time.time()
-    print(f"Completed in {end-start :.2f}s")
+    print(f"Completed in {end - start :.2f}s")
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Generate some calendars')
+    parser.add_argument("-url", default=None, help="url to the .ical")
+    parser.add_argument("-tzs", default=None, metavar='T', nargs='+', help="list of canonical timezones")
+    parser.add_argument("-cache", action='store_true', default=False, help="Enable locally caching ical")
+    args = parser.parse_args()
+
+    # If gdrive_service is none, this will still return run but skip all google steps.
+    gdrive_service = setup_service()
+    success = download_banner(gdrive_service, BANNER_ID, BANNER_PATH)
+    if success:
+        do_tasks(args, gdrive_service)
