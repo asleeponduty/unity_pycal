@@ -20,10 +20,17 @@ from dateutil import tz
 from ics import *
 from gdrive_upload import batch_upload, setup_service, download_banner
 
-LOOKAHEAD = 14  # Days
-FIREFOX_PATH = 'c:\\Program Files\\Mozilla Firefox\\firefox.exe'
-FFMPEG_PATH = 'ffmpeg'  # if it's already on your path, you don't need to use the absolute path
+from sys import platform
 
+LINUX_MODE = True
+FFMPEG_PATH = 'ffmpeg'  # if it's already on your path, you don't need to use the absolute path
+FIREFOX_PATH = 'xvfb-run firefox'
+
+if platform == "win32":
+    LINUX_MODE = False
+    FIREFOX_PATH = '"c:\\Program Files\\Mozilla Firefox\\firefox.exe"'
+
+LOOKAHEAD = 14  # Days
 ENABLE_DESCRIPTIONS = False
 MAX_DETAIL_LINES = 4
 CHARS_PER_DETAIL_LINE = 80
@@ -63,7 +70,6 @@ def generate_calendars(ical_url, canonical_tzs, use_cache=False):
     for can_tz in canonical_tzs:
         loc_tz = tz.gettz(can_tz)
         today = datetime.now(loc_tz)
-        window_start = datetime(today.year, today.month, today.day, tzinfo=loc_tz)
         # For generating files with the UTC offset in the filename instead, use this:
         offset = today.utcoffset() - today.astimezone(timezone.utc).utcoffset()
         offset_num = int(offset.total_seconds() / 3600)
@@ -72,8 +78,8 @@ def generate_calendars(ical_url, canonical_tzs, use_cache=False):
             offset_h = '+' + offset_h
         # if you instead wish to use the canonical name, pass in "loc_tz" instead of "offset_h" here:
         filename = f'cal_{filesafe_str(str(offset_h))}.html'
-        window_end = window_start + timedelta(days=LOOKAHEAD)
-        events = get_events_from_ics(ics_string, window_start, window_end, loc_tz)
+        window_end = today + timedelta(days=LOOKAHEAD)
+        events = get_events_from_ics(ics_string, today, window_end, loc_tz)
         fname = os.path.abspath("output/html") + os.sep + filename
         files.append(fname)
         with open(fname, "w", encoding="utf-8") as out:
@@ -128,6 +134,9 @@ def generate_calendars(ical_url, canonical_tzs, use_cache=False):
 
 def generate_with_firefox(html_paths):
     calendar_images_tmp = []
+    suppress_opt = ''
+    if LINUX_MODE:
+        suppress_opt = ' >/dev/null 2>&1'
     for in_path in html_paths:
         out_path = in_path.replace(".html", ".png").replace("html", "screenshot-in")
         calendar_images_tmp.append(out_path)
@@ -136,7 +145,7 @@ def generate_with_firefox(html_paths):
             ' --headless --profile TEMP_FIREFOX --no-remote' +
             f' --screenshot {out_path}' +
             f' file:///{in_path} ' +
-            ' --window-size=2048,8192')
+            ' --window-size=2048,8192' + suppress_opt, shell=LINUX_MODE)
         os.remove(in_path)
         print("*", end="", flush=True)
 
@@ -177,7 +186,7 @@ def embed_into_mp4(image_paths):
             ' -y -hide_banner -loglevel error' +
             f' -i {full_path}' +
             ' -c:v libx264 -pix_fmt yuv420p' +
-            f' {new_path}')
+            f' {new_path}', shell=LINUX_MODE)
         os.remove(full_path)
         print("*", end="", flush=True)
     return result_paths
@@ -228,9 +237,10 @@ def do_tasks(args, goog_service):
     post_mp4 = embed_into_mp4(post_imgs)
     last = print_elapsed(last)
 
-    print(f"Uploading files to Google Drive\n[", end="")
-    batch_upload(goog_service, post_mp4)
-    print_elapsed(last)
+    if goog_service:
+        print(f"Uploading files to Google Drive\n[", end="")
+        batch_upload(goog_service, post_mp4)
+        print_elapsed(last)
 
     end = time.time()
     print(f"Completed in {end - start :.2f}s")

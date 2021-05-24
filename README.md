@@ -35,12 +35,17 @@ and generate HTML in a pleasing format
 * FFMPEG
 * Noto Sans fonts (below)
 * (optional) an authorized application with Google OAUTH 2.0 with scopes for writing to google drive
+* firefox
+* (Linux) xvfb, for running on systems without displays
 
 ### Python Libraries (pip):
 * python-dateutil
 * icalendar
 * opencv-python
 * urllib3
+* google-api-python-client 
+* google-auth-httplib2 
+* google-auth-oauthlib
 
 ### Fonts
 Google's ["Noto Sans JP"]("https://fonts.google.com/specimen/Noto+Sans+JP") font needs to be extracted to the fonts/Noto_Sans_JP directory

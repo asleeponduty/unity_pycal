@@ -23,7 +23,7 @@ def get_events_from_ics(ics_string, window_start, window_end, local_tz=timezone.
 
         events.append(e)
 
-    def get_recurrent_datetimes(recur_rule, start, exclusions):
+    def get_recurrent_datetimes(recur_rule, start, exclusions, all_day=False):
         rules = rruleset()
         first_rule = rrulestr(recur_rule, dtstart=start)
         rules.rrule(first_rule)
@@ -38,7 +38,12 @@ def get_events_from_ics(ics_string, window_start, window_end, local_tz=timezone.
 
         dates = []
 
-        for d in rules.between(window_start, window_end):
+        # Fixes: Issue where all-day recurring events are excluded on "Today"
+        recur_win_start = window_start
+        if all_day:
+            recur_win_start = datetime(window_start.year, window_start.month, window_start.day, tzinfo=local_tz)
+        # Fix-Continued: Above + Set search to "Inclusive"
+        for d in rules.between(recur_win_start, window_end, inc=True):
             dates.append(d)
         return dates
 
@@ -72,7 +77,7 @@ def get_events_from_ics(ics_string, window_start, window_end, local_tz=timezone.
         exdate = vevent.get('exdate')
         if vevent.get('rrule'):
             reoccur = vevent.get('rrule').to_ical().decode('utf-8')
-            for d in get_recurrent_datetimes(reoccur, startdt, exdate):
+            for d in get_recurrent_datetimes(reoccur, startdt, exdate, allday):
                 if allday:
                     d = datetime(d.year, d.month, d.day, tzinfo=local_tz)
 
