@@ -31,7 +31,8 @@ tr td {
 }
 .right {
   float: right;
-  margin-right: 2em;
+  margin-right: 4em;
+  clear: both;
 }
 .scrollbar {
   width: 96px;

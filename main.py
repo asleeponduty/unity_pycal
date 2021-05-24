@@ -83,7 +83,7 @@ def generate_calendars(ical_url, canonical_tzs, use_cache=False):
         fname = os.path.abspath("output/html") + os.sep + filename
         files.append(fname)
         with open(fname, "w", encoding="utf-8") as out:
-            out.write(head_html_template.substitute(timezone=str(offset_h)))
+            out.write(head_html_template.substitute(timezone=str(offset_h), now=today.strftime('%b %d @ %H:%M')))
             out.write(f"<div class=\"calendar\"><table>\n")
             day = None
             for e in events:
