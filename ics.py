@@ -71,8 +71,8 @@ def get_events_from_ics(ics_string, window_start, window_end, local_tz=timezone.
             startdt = date_to_datetime(rawstartdt)
             enddt = date_to_datetime(rawenddt)
         else:
-            startdt = rawstartdt.astimezone(tz=local_tz)
-            enddt = rawenddt.astimezone(tz=local_tz)
+            startdt = rawstartdt
+            enddt = rawenddt
 
         exdate = vevent.get('exdate')
         if vevent.get('rrule'):
