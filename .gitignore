@@ -1,6 +1,7 @@
 # Large files/Transient files
 html-resources/fonts/Noto_Sans_JP/**.otf
 calendar.ical
+html-resources/banner/current.png
 
 # Secrets
 gdrive/**.json
