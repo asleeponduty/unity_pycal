@@ -35,7 +35,6 @@ ENABLE_DESCRIPTIONS = False
 MAX_DETAIL_LINES = 4
 CHARS_PER_DETAIL_LINE = 80
 
-BANNER_ID = "19P7CCDuquFFzNnOz4-nu4ZtgkFAHUepj"
 BANNER_PATH = "html-resources/banner/current.png"
 
 
@@ -255,6 +254,6 @@ if __name__ == '__main__':
 
     # If gdrive_service is none, this will still return run but skip all google steps.
     gdrive_service = setup_service()
-    success = download_banner(gdrive_service, BANNER_ID, BANNER_PATH)
+    success = download_banner(gdrive_service, BANNER_PATH)
     if success:
         do_tasks(args, gdrive_service)

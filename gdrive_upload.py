@@ -10,7 +10,7 @@ from googleapiclient import errors
 from google.auth.exceptions import RefreshError
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 
-from gdrive.upload_file_dict import file_dict
+from gdrive.upload_file_dict import file_dict, h_id
 
 
 SCOPES = ['https://www.googleapis.com/auth/drive']
@@ -75,13 +75,13 @@ def update_file(service, file_id, new_filename):
         return None
 
 
-def download_banner(service, file_id, path):
+def download_banner(service, path):
     if not service:
         return True
     print("Downloading Banner: ", end="")
     os.remove(path)
     fh = io.FileIO(path, 'wb')
-    request = service.files().get_media(fileId=file_id)
+    request = service.files().get_media(fileId=h_id)
     media_req = MediaIoBaseDownload(fh, request)
 
     while True:
