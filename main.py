@@ -184,7 +184,7 @@ def embed_into_mp4(image_paths):
             FFMPEG_PATH +
             ' -y -hide_banner -loglevel error' +
             f' -loop 1 -i {full_path}' +
-            ' -c:v libx264 -t 1.5 -r 15 -pix_fmt yuv420p' +
+            ' -c:v libx264 -t 2 -r 2 -pix_fmt yuv420p' +
             f' {new_path}', shell=LINUX_MODE)
         os.remove(full_path)
         print("*", end="", flush=True)
